@@ -2,6 +2,8 @@ import numpy
 import matplotlib.pyplot
 # scipy.special for the sigmoid function expit()
 import scipy.special
+import glob
+import imageio.v3
 
 
 # neural network class definition
@@ -71,7 +73,7 @@ hidden_nodes = 100
 output_nodes = 10
 
 # learning rate is 0.3
-learning_rate = 0.1
+learning_rate = 0.2 
 
 #create instance of neural network
 n = neuralNetwork(input_nodes, hidden_nodes, output_nodes, learning_rate)
@@ -85,7 +87,7 @@ training_data_file.close()
 # go through all records in the training data set
 
 #number of times to train the neural network
-epochs = 7
+epochs = 6
 for epoch in range(epochs):
     for record in training_data_list:
         all_values = record.split(',')
@@ -97,43 +99,65 @@ for epoch in range(epochs):
         # all_values[0] is the target label for this record
         targets[int(all_values[0])] = 0.99
         n.train(inputs, targets)
+    print("Epoch: ", epoch)
+
+#my set of images
+my_data_set = []
+
+#load my images as a dataset
+for image_file_name in glob.glob("my_dataset/image_?.png"):
+
+    #set label (the character before .png)
+    label = int(image_file_name[-5:-4])
+
+    #load image data from png to array
+    print("Loading image: ", image_file_name)
+    img_array = imageio.v3.imread(image_file_name, mode= 'F')
+    #reshape fro 28*28 to 784
+    img_array =255.0 - img_array.reshape((784))
+
+    #scale data to range between 0.01 and 1.0
+    img_data = (img_array / 255.0 * 0.99) + 0.01
+    print(numpy.min(img_data))
+    print(numpy.max(img_data))
+
+    record = numpy.append(label,img_data)
+    my_data_set.append(record)
+    
+
+#test the neural network with my dataset
+
+#record to test
+item = 1
+print("Dataset length: ", len(my_data_set))
+#plot image
+matplotlib.pyplot.imshow(my_data_set[item][1:].reshape((28, 28)), cmap="Greys", interpolation='None')
+# matplotlib.pyplot.show()
+#correct label
+correct_label = int(my_data_set[item][0])
+
+#the data are the remaining values
+inputs = my_data_set[item][1:]
+
+#query the neural network
+outputs = n.query(inputs)
+print("Outputs: ", outputs)
+
+label = numpy.argmax(outputs)
+print("Network's label: ", label)
+      
+#give correct or incorrect answer
+if label == correct_label:
+    print("Network's answer is correct")
+else:
+    print("Network's answer is incorrect")
 
 
-image_array = numpy.asarray(all_values[1:], dtype=float).reshape((28, 28))
-matplotlib.pyplot.imshow(image_array, cmap="Greys", interpolation='None')
-
-# load the mnist test data CSV file into a list
-test_data_file = open("mnist_dataset/mnist_test_10.csv", 'r')
-test_data_list = test_data_file.readlines()
-test_data_file.close()
 
 
-#Test the neural network
-#scorecard shows how well the network performs, initially empty
-scorecard = []
-
-#loop through all records in the training data set
-for record in test_data_list:
-    all_values = record.split(',')
-    #correct label is the first value
-    correct_label = int(all_values[0])
-    #scale and shift the inputs
-    inputs = (numpy.asarray(all_values[1:], dtype=float) /255.0 *0.99) + 0.01
-    #query the neural network
-    outputs = n.query(inputs)
-    #index of highest values corresponds to the label
-    label = numpy.argmax(outputs)
-    #append correct or incorrect to scorecard
-    if label == correct_label:
-        scorecard.append(1)
-    else:
-        scorecard.append(0)
 
 
-#calculate the performance score, the fraction of correct answers
-scorecard_array = numpy.asarray(scorecard)
-performance = scorecard_array.sum() / scorecard_array.size
-print("Performance = ", performance)
+
 
 
 
