@@ -3,6 +3,9 @@ import matplotlib.pyplot
 # scipy.special for the sigmoid function expit()
 import scipy.special
 
+#import for rotating image arrays
+import scipy.ndimage
+
 
 # neural network class definition
 class neuralNetwork: # initialise the neural network
@@ -14,7 +17,6 @@ class neuralNetwork: # initialise the neural network
         self.lr=learningrate 
         #activation function is the sigmoid function
         self.activation_function = lambda x: scipy.special.expit(x)
-        self.inverse_activation_function = lambda x: scipy.special.logit(x)
         # link weight matrices, wih and who
         # weights inside the arrays are w_i_j, where link is from node i to node j in the next layer # w11 w21
         # w12 w22 etc
@@ -63,44 +65,16 @@ class neuralNetwork: # initialise the neural network
 
         return final_outputs
 
-    def backquery(self, targets_list):
-        #transpose the target list into a vertical array
-        final_outputs= numpy.array(targets_list, ndmin=2).T
-
-        #calculate the signal into the final output layer
-        final_inputs = self.inverse_activation_function(final_outputs)
-
-        #calculate the signals out of the hidden layer
-        hidden_outputs = numpy.dot(self.who.T, final_inputs)
-
-        #scale them back to 0.01 to 0.99
-        hidden_outputs -= numpy.min(hidden_outputs)
-        hidden_outputs /= numpy.max(hidden_outputs)
-        hidden_outputs *= 0.98
-        hidden_outputs += 0.01
-
-        #calculate the signal into the hidden layer
-        hiddent_inputs = self.inverse_activation_function(hidden_outputs)
-
-        #calculate the signal out of the input layer
-        inputs = numpy.dot(self.wih.T, hiddent_inputs)
-        #scale them back to 0.01 to 0.99
-        inputs -= numpy.min(inputs)
-        inputs /= numpy.max(inputs)
-        inputs *= 0.98
-        inputs += 0.01
-
-        return inputs
 
 
 
 # of hidden ,input and output nodes
 input_nodes = 784
-hidden_nodes = 200
+hidden_nodes = 100
 output_nodes = 10
 
 # learning rate is 0.3
-learning_rate = 0.1
+learning_rate = 0.01
 
 #create instance of neural network
 n = neuralNetwork(input_nodes, hidden_nodes, output_nodes, learning_rate)
@@ -127,24 +101,50 @@ for epoch in range(epochs):
         targets[int(all_values[0])] = 0.99
         n.train(inputs, targets)
 
-
-label = 0
-
-#create the output signals for this label
-
-targets = numpy.zeros(output_nodes) + 0.01
-targets[label] = 0.99
-
-print(targets)
-#backquery the neural network
+        ##create rotated variants of the image
+        #rotate anti-clockwise
+        inputs_plus10_img = scipy.ndimage.rotate(numpy.reshape(inputs, (28,28)),10, cval=0.01, order=1, reshape=False)
+        n.train(inputs_plus10_img.reshape(784), targets)
+        #rotate clockwise
+        inputs_minus10_img = scipy.ndimage.rotate(numpy.reshape(inputs, (28,28)),-10, cval=0.01, order=1, reshape=False)
+        n.train(inputs_minus10_img.reshape(784), targets)
 
 
-image_data= n.backquery(targets)
+image_array = numpy.asarray(all_values[1:], dtype=float).reshape((28, 28))
+matplotlib.pyplot.imshow(image_array, cmap="Greys", interpolation='None')
 
-#plot image data
-matplotlib.pyplot.imshow(numpy.reshape(image_data, (28, 28)), cmap='Greys', interpolation='None')
-matplotlib.pyplot.show()
+# load the mnist test data CSV file into a list
+test_data_file = open("mnist_dataset/mnist_test.csv", 'r')
+test_data_list = test_data_file.readlines()
+test_data_file.close()
 
+
+#Test the neural network
+#scorecard shows how well the network performs, initially empty
+scorecard = []
+
+#loop through all records in the training data set
+for record in test_data_list:
+    all_values = record.split(',')
+    #correct label is the first value
+    correct_label = int(all_values[0])
+    #scale and shift the inputs
+    inputs = (numpy.asarray(all_values[1:], dtype=float) /255.0 *0.99) + 0.01
+    #query the neural network
+    outputs = n.query(inputs)
+    #index of highest values corresponds to the label
+    label = numpy.argmax(outputs)
+    #append correct or incorrect to scorecard
+    if label == correct_label:
+        scorecard.append(1)
+    else:
+        scorecard.append(0)
+
+
+#calculate the performance score, the fraction of correct answers
+scorecard_array = numpy.asarray(scorecard)
+performance = scorecard_array.sum() / scorecard_array.size
+print("Performance = ", performance)
 
 
 
